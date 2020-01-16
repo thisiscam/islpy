@@ -4,11 +4,12 @@ set -e
 set -x
 
 BUILD_DIR=$(mktemp -d -t islpy-barvinok-build-XXXXXXX)
+# BUILD_DIR=$PWD/build   #TOGGLE this for debugging
 echo "BUILDING IN $BUILD_DIR"
 
 PREFIX="$HOME/pack/barvinok"
 NTL_VER="10.5.0"
-BARVINOK_GIT_REV="barvinok-0.41.2"
+BARVINOK_GIT_REV="barvinok-0.41.3"
 NPROCS=6
 
 if true; then
@@ -43,7 +44,7 @@ if true; then
     fi
   done
 
-  (cd isl; patch -p1 < ../../islpy/add-missing-isl_term_cow-in-isl_poly_foreach_term.patch)
+  # (cd isl; patch -p1 < ../../islpy/add-missing-isl_term_cow-in-isl_poly_foreach_term.patch)
 
   sh autogen.sh
   ./configure \
@@ -64,4 +65,20 @@ cd islpy
   --isl-inc-dir=$PREFIX/include \
   --isl-lib-dir=$PREFIX/lib \
   --use-barvinok
-CC=g++ LDSHARED="g++ -shared" python setup.py install
+
+
+CPP_LD_EXTRA_FLAGS=""
+if [[ "$(uname)" == "Darwin" ]]; then
+    # Do something under Mac OS X platform
+    CPP_LD_EXTRA_FLAGS="-undefined dynamic_lookup"
+elif [[ "$(expr substr $(uname -s) 1 5)" == "Linux" ]]; then
+    # Do something under GNU/Linux platform
+    :
+elif [[ "$(expr substr $(uname -s) 1 10)" == "MINGW32_NT" ]]; then
+    # Do something under 32 bits Windows NT platform
+    :
+elif [[ "$(expr substr $(uname -s) 1 10)" == "MINGW64_NT" ]]; then
+    # Do something under 64 bits Windows NT platform
+    :
+fi
+CC=g++ LDSHARED="g++ -shared ${CPP_LD_EXTRA_FLAGS}" python setup.py install
