@@ -309,6 +309,18 @@ def test_align_spaces():
     result = isl.align_spaces(m1, m2)
     assert result.get_var_dict() == m2.get_var_dict()
 
+    a1 = isl.Aff("[t0, t1, t2] -> { [(32)] }")
+    a2 = isl.Aff("[t1, t0] -> { [(0)] }")
+
+    with pytest.raises(isl.Error):
+        a1_aligned = isl.align_spaces(a1, a2)
+
+    a1_aligned = isl.align_spaces(a1, a2, obj_bigger_ok=True)
+    a2_aligned = isl.align_spaces(a2, a1)
+
+    assert a1_aligned == isl.Aff("[t1, t0, t2] -> { [(32)] }")
+    assert a2_aligned == isl.Aff("[t1, t0, t2] -> { [(0)] }")
+
 
 def test_pass_numpy_int():
     np = pytest.importorskip("numpy")
@@ -318,6 +330,62 @@ def test_pass_numpy_int():
 
     c1 = c0.set_constant_val(np.int32(5))
     print(c1)
+
+
+def test_isl_align_two():
+    a1 = isl.Aff("[t0, t1, t2] -> { [(32)] }")
+    a2 = isl.Aff("[t1, t0] -> { [(0)] }")
+
+    a1_aligned, a2_aligned = isl.align_two(a1, a2)
+    assert a1_aligned == isl.Aff("[t1, t0, t2] -> { [(32)] }")
+    assert a2_aligned == isl.Aff("[t1, t0, t2] -> { [(0)] }")
+
+    b1 = isl.BasicSet("[n0, n1, n2] -> { [i0, i1] : }")
+    b2 = isl.BasicSet("[n0, n2, n1, n3] -> { [i1, i0, i2] : }")
+
+    b1_aligned, b2_aligned = isl.align_two(b1, b2)
+    assert b1_aligned == isl.BasicSet("[n0, n2, n1, n3] -> { [i1, i0, i2] :  }")
+    assert b2_aligned == isl.BasicSet("[n0, n2, n1, n3] -> { [i1, i0, i2] :  }")
+
+
+def test_bound():
+    print(isl.PwQPolynomial("""[n, m] -> {[i, j] -> i * m + j :
+            0 <= i < n and 0 <= j < m}""").bound(isl.fold.min))
+    print(isl.PwQPolynomial("""[n, m] -> {[i, j] -> i * m + j :
+            0 <= i < n and 0 <= j < m}""").bound(isl.fold.max))
+
+
+def test_copy_context():
+    ctx = isl.Context()
+    import copy
+    assert copy.copy(ctx).data != ctx.data
+    assert copy.copy(ctx).data != isl.DEFAULT_CONTEXT.data
+
+
+def test_ast_node_list_free():
+    # from https://github.com/inducer/islpy/issues/21
+    # by Cambridge Yang
+
+    ctx = isl.Context()
+    schedule_map = isl.UnionMap.read_from_str(
+            ctx, "[N] -> { S0[i] -> [i, 0] : "
+            "0 <= i < N; S1[i] -> [i, 1] : 0 <= i < N }")
+    ast_build = isl.AstBuild.from_context(isl.Set.read_from_str(ctx, "[N] -> { : }"))
+    ast = ast_build.node_from_schedule_map(schedule_map)
+
+    print(ast.to_C_str())
+    # Prints below code:
+    # for (int c0 = 0; c0 < N; c0 += 1) {
+    #  S0(c0);
+    #  S1(c0);
+    # }
+
+    # we have S0 and S1 in a ast_node_block, which holds "children" of type
+    # ASTNodeList
+    body = ast.for_get_body()
+    assert body.get_type() == isl.ast_node_type.block
+
+    body.block_get_children()
 
 
 if __name__ == "__main__":
