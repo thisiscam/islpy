@@ -30,7 +30,7 @@ if true; then
 
   cd "$BUILD_DIR"
   rm -Rf  barvinok
-  git clone git://repo.or.cz/barvinok.git
+  git clone https://github.com/inducer/barvinok.git
   cd barvinok
   git checkout $BARVINOK_GIT_REV
 
@@ -43,8 +43,6 @@ if true; then
       exit 1
     fi
   done
-
-  # (cd isl; patch -p1 < ../../islpy/add-missing-isl_term_cow-in-isl_poly_foreach_term.patch)
 
   sh autogen.sh
   ./configure \
